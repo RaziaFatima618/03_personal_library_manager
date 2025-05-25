@@ -305,17 +305,6 @@ wheels = [
 ]
 
 [[package]]
-name = "p-library-m"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "streamlit" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "streamlit", specifier = ">=1.45.1" }]
-
-[[package]]
 name = "packaging"
 version = "24.2"
 source = { registry = "https://pypi.org/simple" }
@@ -615,6 +604,17 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/56/ec/d8da6df6a1eb3a418944a17b1cb38dd430b9e5a2e972eafd2b06f10c7c46/rpds_py-0.24.0-pp311-pypy311_pp73-musllinux_1_2_i686.whl", hash = "sha256:9abc80fe8c1f87218db116016de575a7998ab1629078c90840e8d11ab423ee25", size = 592627, upload-time = "2025-03-26T14:55:36.26Z" },
     { url = "https://files.pythonhosted.org/packages/b3/14/c492b9c7d5dd133e13f211ddea6bb9870f99e4f73932f11aa00bc09a9be9/rpds_py-0.24.0-pp311-pypy311_pp73-musllinux_1_2_x86_64.whl", hash = "sha256:6a727fd083009bc83eb83d6950f0c32b3c94c8b80a9b667c87f4bd1274ca30ba", size = 560885, upload-time = "2025-03-26T14:55:38Z" },
 ]
+
+[[package]]
+name = "s-d-e"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "streamlit" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "streamlit", specifier = ">=1.45.1" }]
 
 [[package]]
 name = "six"

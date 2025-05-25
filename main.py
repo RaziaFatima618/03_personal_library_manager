@@ -1,151 +1,105 @@
 import streamlit as st
-import json
-import os
-from datetime import datetime
+import hashlib
+from cryptography.fernet import Fernet
 
-class LibraryManager:
-    def __init__(self):
-        self.library = [] 
-        self.filename = "library_data.json"
-        self.load_library()
+import base64
 
-    def load_library(self):
-        """Load library data from JSON file"""
-        try:
-            if os.path.exists(self.filename):
-                with open(self.filename, 'r') as file:
-                    self.library = json.load(file)
-        except Exception as e:
-            self.library = []
+# In-memory storage for user data
+stored_data = {}
+failed_attempts = {}
 
-    def save_library(self):
-        """Save library data to JSON file"""
-        try:
-            with open(self.filename, 'w') as file:
-                json.dump(self.library, file, indent=4)
-        except Exception as e:
-            st.error(f"Error saving library: {e}")
+# Function to hash passkeys using SHA-256
+def hash_passkey(passkey):
+    return hashlib.sha256(passkey.encode()).hexdigest()
 
-    def add_book(self, title, author, year, genre, read_status):
-        """Add a new book to the library"""
-        book = {
-            'title': title.strip(),
-            'author': author.strip(),
-            'year': year,
-            'genre': genre.strip(),
-            'read': read_status,
-            'date_added': datetime.now().strftime("%Y-%m-%d")
-        }
-        self.library.append(book)
-        self.save_library()
+# Function to generate a Fernet key from the passkey
+def generate_key(passkey):
+    # Ensure the key is 32 bytes
+    key = hashlib.sha256(passkey.encode()).digest()
+    return base64.urlsafe_b64encode(key)
 
-    def remove_book(self, title):
-        """Remove a book from the library"""
-        initial_count = len(self.library)
-        self.library = [book for book in self.library if book['title'].lower() != title.lower()]
-        if len(self.library) < initial_count:
-            self.save_library()
+# Function to encrypt data
+def encrypt_data(data, passkey):
+    key = generate_key(passkey)
+    fernet = Fernet(key)
+    return fernet.encrypt(data.encode()).decode()
 
-    def search_books(self, search_term, search_by):
-        """Search for books by title or author"""
-        if search_by == "title":
-            return [book for book in self.library if search_term.lower() in book['title'].lower()]
-        elif search_by == "author":
-            return [book for book in self.library if search_term.lower() in book['author'].lower()]
+# Function to decrypt data
+def decrypt_data(token, passkey):
+    key = generate_key(passkey)
+    fernet = Fernet(key)
+    return fernet.decrypt(token.encode()).decode()
 
-    def display_all_books(self):
-        """Return all books in the library"""
-        return self.library
-
-    def display_statistics(self):
-        """Return library statistics"""
-        total_books = len(self.library)
-        read_books = sum(1 for book in self.library if book['read'])
-        read_percentage = (read_books / total_books) * 100 if total_books > 0 else 0
-        return total_books, read_books, read_percentage
-
-# Streamlit UI
+# Streamlit application
 def main():
-    st.title("Personal Library Manager")
+    st.title("🔐 Secure Data Encryption System")
 
-    library = LibraryManager()
+    menu = ["Home", "Store Data", "Retrieve Data", "Login"]
+    choice = st.sidebar.selectbox("Menu", menu)
 
-    # Sidebar for navigation
-    menu = ["Add Book", "Remove Book", "Search Books", "Display All Books", "Statistics"]
-    choice = st.sidebar.selectbox("Choose an option", menu)
+    if choice == "Home":
+        st.subheader("Welcome to the Secure Data Encryption System")
+        st.write("Use the sidebar to navigate through the application.")
 
-    # Add a book
-    if choice == "Add Book":
-        st.subheader("Add New Book")
-        title = st.text_input("Enter title")
-        author = st.text_input("Enter author")
-        year = st.number_input("Enter publication year", min_value=1000, max_value=datetime.now().year)
-        genre = st.text_input("Enter genre")
-        read_status = st.radio("Has the book been read?", ('Yes', 'No')) == 'Yes'
+    elif choice == "Store Data":
+        st.subheader("Store New Data")
+        user_id = st.text_input("Enter a unique identifier (e.g., username):")
+        data = st.text_area("Enter the data to encrypt:")
+        passkey = st.text_input("Enter a passkey:", type="password")
 
-        if st.button("Add Book"):
-            if title and author and genre:
-                library.add_book(title, author, year, genre, read_status)
-                st.success(f"Book '{title}' added successfully!")
+        if st.button("Encrypt and Store"):
+            if user_id in stored_data:
+                st.warning("Identifier already exists. Choose a different one.")
             else:
-                st.warning("Please fill in all fields!")
+                hashed_passkey = hash_passkey(passkey)
+                encrypted_text = encrypt_data(data, passkey)
+                stored_data[user_id] = {
+                    "encrypted_text": encrypted_text,
+                    "passkey": hashed_passkey
+                }
+                failed_attempts[user_id] = 0
+                st.success("Data encrypted and stored successfully.")
 
-    # Remove a book
-    elif choice == "Remove Book":
-        st.subheader("Remove Book")
-        title = st.text_input("Enter the title of the book to remove")
-        if st.button("Remove Book"):
-            if title:
-                library.remove_book(title)
-                st.success(f"Book '{title}' removed successfully!")
-            else:
-                st.warning("Please enter a title!")
+    elif choice == "Retrieve Data":
+        st.subheader("Retrieve Stored Data")
+        user_id = st.text_input("Enter your identifier:")
+        passkey = st.text_input("Enter your passkey:", type="password")
 
-    # Search books
-    elif choice == "Search Books":
-        st.subheader("Search Books")
-        search_by = st.radio("Search by", ['title', 'author'])
-        search_term = st.text_input(f"Enter {search_by}")
-        if st.button("Search"):
-            if search_term:
-                found_books = library.search_books(search_term, search_by)
-                if found_books:
-                    for book in found_books:
-                        st.write(f"**Title**: {book['title']}")
-                        st.write(f"**Author**: {book['author']}")
-                        st.write(f"**Year**: {book['year']}")
-                        st.write(f"**Genre**: {book['genre']}")
-                        st.write(f"**Read**: {'Yes' if book['read'] else 'No'}")
-                        st.write(f"**Date Added**: {book['date_added']}")
-                        st.write("---")
+        if st.button("Decrypt and Retrieve"):
+            if user_id in stored_data:
+                if failed_attempts.get(user_id, 0) >= 3:
+                    st.error("Maximum failed attempts reached. Please reauthorize.")
+                    st.info("Redirecting to Login page...")
+                    st.experimental_rerun()
                 else:
-                    st.warning("No books found!")
+                    hashed_input = hash_passkey(passkey)
+                    if hashed_input == stored_data[user_id]["passkey"]:
+                        decrypted_text = decrypt_data(stored_data[user_id]["encrypted_text"], passkey)
+                        st.success("Data decrypted successfully:")
+                        st.write(decrypted_text)
+                        failed_attempts[user_id] = 0  # Reset failed attempts
+                    else:
+                        failed_attempts[user_id] += 1
+                        attempts_left = 3 - failed_attempts[user_id]
+                        st.error(f"Incorrect passkey. Attempts left: {attempts_left}")
             else:
-                st.warning("Please enter a search term!")
+                st.warning("Identifier not found.")
 
-    # Display all books
-    elif choice == "Display All Books":
-        st.subheader("All Books")
-        all_books = library.display_all_books()
-        if all_books:
-            for book in all_books:
-                st.write(f"**Title**: {book['title']}")
-                st.write(f"**Author**: {book['author']}")
-                st.write(f"**Year**: {book['year']}")
-                st.write(f"**Genre**: {book['genre']}")
-                st.write(f"**Read**: {'Yes' if book['read'] else 'No'}")
-                st.write(f"**Date Added**: {book['date_added']}")
-                st.write("---")
-        else:
-            st.warning("No books in the library!")
+    elif choice == "Login":
+        st.subheader("Reauthorization Required")
+        user_id = st.text_input("Enter your identifier:")
+        passkey = st.text_input("Enter your passkey:", type="password")
 
-    # Display statistics
-    elif choice == "Statistics":
-        st.subheader("Library Statistics")
-        total_books, read_books, read_percentage = library.display_statistics()
-        st.write(f"**Total Books**: {total_books}")
-        st.write(f"**Books Read**: {read_books}")
-        st.write(f"**Percentage Read**: {read_percentage:.1f}%")
+        if st.button("Reauthorize"):
+            if user_id in stored_data:
+                hashed_input = hash_passkey(passkey)
+                if hashed_input == stored_data[user_id]["passkey"]:
+                    failed_attempts[user_id] = 0
+                    st.success("Reauthorization successful. You can now retrieve your data.")
+                else:
+                    st.error("Incorrect passkey.")
+            else:
+                st.warning("Identifier not found.")
 
 if __name__ == "__main__":
     main()
